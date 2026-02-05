@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UA-NEWS: Портал з функцією збереження</title>
+    <style>
+        :root {
+            --ua-blue: #0057b7;
+            --ua-yellow: #ffd700;
+            --bg: #f0f2f5;
+            --card-bg: #ffffff;
+        }
+
+        body { font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; color: #333; padding-bottom: 50px; }
+
+        /* ВЕРХНЯ ПАНЕЛЬ */
+        .top-info-bar {
+            background: white; padding: 12px 20px; display: flex; gap: 25px;
+            justify-content: center; box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            font-size: 0.9rem; border-bottom: 1px solid #e0e0e0; position: sticky; top: 0; z-index: 100;
+        }
+        .info-item { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+
+        header { background: var(--ua-blue); color: white; padding: 25px; text-align: center; border-bottom: 4px solid var(--ua-yellow); }
+
+        .container { max-width: 850px; margin: 20px auto; padding: 0 15px; }
+
+        /* НАВІГАЦІЯ ТА КАТЕГОРІЇ */
+        .nav-container { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+        .nav-scroll { display: flex; gap: 10px; overflow-x: auto; padding: 5px 0; scrollbar-width: none; }
+        .btn-nav {
+            background: white; border: 1px solid #ddd; padding: 10px 22px;
+            border-radius: 30px; cursor: pointer; white-space: nowrap;
+            transition: 0.3s; font-size: 0.9rem; font-weight: 600;
+        }
+        .btn-nav.active { background: var(--ua-blue); color: white; border-color: var(--ua-blue); }
+        .btn-bookmarks { background: #ffc107; color: #000; border: none; }
+
+        /* КАРТКИ НОВИН */
+        .news-card {
+            background: var(--card-bg); border-radius: 16px; padding: 25px;
+            margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            border-left: 6px solid var(--ua-blue); animation: fadeIn 0.4s ease;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .tag { background: #e3f2fd; color: #0d47a1; padding: 4px 10px; border-radius: 6px; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; }
+        h2 { margin: 15px 0; font-size: 1.4rem; line-height: 1.3; cursor: pointer; color: #1a1a1a; }
+        h2:hover { color: var(--ua-blue); }
+
+        /* КНОПКИ ДІЙ */
+        .card-footer { display: flex; gap: 12px; margin-top: 15px; padding-top: 15px; border-top: 1px solid #f0f0f0; }
+        .btn-action {
+            border: none; padding: 10px 18px; border-radius: 10px;
+            cursor: pointer; font-size: 0.85rem; font-weight: 600; display: flex; align-items: center; gap: 8px;
+        }
+        .btn-read { background: var(--ua-blue); color: white; }
+        .btn-save { background: #f1f3f5; color: #495057; }
+        .btn-save.saved { background: #2ecc71; color: white; }
+        .btn-like { background: #fff0f0; color: #ff4757; }
+
+        /* ПЕРЕГЛЯД СТАТТІ ТА СТОРІНКА ЗБЕРЕЖЕНОГО */
+        #article-view, #bookmarks-view { display: none; background: white; padding: 35px; border-radius: 20px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); }
+        .back-btn { color: var(--ua-blue); cursor: pointer; font-weight: bold; margin-bottom: 20px; display: inline-block; }
+
+        footer { text-align: center; padding: 40px; color: #888; border-top: 1px solid #ddd; margin-top: 50px; }
+    </style>
+</head>
+<body>
+
+<div class="top-info-bar">
+    <div class="info-item">💵 USD: <span style="color:#2ecc71">43,16</span></div>
+    <div class="info-item">💶 EUR: <span style="color:#2ecc71">51,03</span></div>
+    <div class="info-item">🌡️ Київ: <span style="color:#e67e22">-7°C</span></div>
+</div>
+
+<header>
+    <h1>UA-NEWS Україна</h1>
+    <div id="today-date"></div>
+</header>
+
+<div class="container">
+    <div class="nav-container">
+        <div class="nav-scroll">
+            <button class="btn-nav active" onclick="filterNews('all', this)">Усі новини</button>
+            <button class="btn-nav" onclick="filterNews('war', this)">Війна</button>
+            <button class="btn-nav" onclick="filterNews('politics', this)">Політика</button>
+            <button class="btn-nav" onclick="filterNews('economy', this)">Економіка</button>
+            <button class="btn-nav" onclick="filterNews('tech', this)">Технології</button>
+            <button class="btn-nav" onclick="filterNews('sport', this)">Спорт</button>
+        </div>
+        <button class="btn-nav btn-bookmarks" onclick="showBookmarks()">⭐ Мої збережені (<span id="bookmark-count">0</span>)</button>
+    </div>
+
+    <div id="news-list">
+    </div>
+
+    <div id="article-view">
+        <span class="back-btn" onclick="goHome()">← Назад</span>
+        <div id="article-content"></div>
+    </div>
+
+    <div id="bookmarks-view">
+        <span class="back-btn" onclick="goHome()">← Назад до стрічки</span>
+        <h2>Ваші збережені новини</h2>
+        <div id="bookmarks-list"></div>
+    </div>
+</div>
+
+<footer>&copy; 2026 UA-NEWS — Незалежне інформаційне агентство</footer>
+
+<script>
+    // 1. БАЗА ДАНИХ НОВИН (15 штук)
+    const newsData = [
+        { id: 1, cat: 'war', tag: 'Важливо', title: 'Обмін полоненими: 157 захисників вдома', desc: 'Сьогодні відбувся масштабний обмін захисників Маріуполя та Бахмута.' },
+        { id: 2, cat: 'war', tag: 'Фронт', title: 'Успішна операція ППО на Півдні', desc: 'Збито 12 крилатих ракет, які цілили в об’єкти критичної інфраструктури.' },
+        { id: 3, cat: 'war', tag: 'Допомога', title: 'Новий пакет військової допомоги від США', desc: 'У пакет увійшли системи ППО та додаткові боєприпаси для HIMARS.' },
+
+        { id: 4, cat: 'politics', tag: 'Закон', title: 'Президент підписав закон про цифрові активи', desc: 'Україна робить крок до повної легалізації криптовалютного сектору.' },
+        { id: 5, cat: 'politics', tag: 'ЄС', title: 'Саміт у Брюсселі: шлях України до ЄС', desc: 'Лідери країн Європи обговорили прискорену процедуру вступу.' },
+        { id: 6, cat: 'politics', tag: 'Реформи', title: 'Рада ухвалила реформу митної служби', desc: 'Мета законопроєкту — повна цифровізація та боротьба з корупцією.' },
+
+        { id: 7, cat: 'economy', tag: 'Курс', title: 'Гривня зміцнюється після нових інвестицій', desc: 'Економісти прогнозують стабільність валютного ринку до літа.' },
+        { id: 8, cat: 'economy', tag: 'Агро', title: 'Україна відновила експорт зерна через порти', desc: 'Перші кораблі з пшеницею вже прямують до країн Африки.' },
+        { id: 9, cat: 'economy', tag: 'Енерго', title: 'Запуск нових вітрових електростанцій', desc: 'На заході України запрацював найбільший парк зеленої енергетики.' },
+
+        { id: 10, cat: 'tech', tag: 'AI', title: 'Український ШІ-стартап залучив $10 млн', desc: 'Розробка допомагає автоматизувати роботу логістичних центрів.' },
+        { id: 11, cat: 'tech', tag: 'Starlink', title: 'Оновлення мережі супутникового зв’язку', desc: 'В Україні розширюють покриття швидкісного інтернету для лікарень.' },
+        { id: 12, cat: 'tech', tag: 'Cyber', title: 'Кіберполіція викрила мережу онлайн-шахраїв', desc: 'Заблоковано сотні ресурсів, що викрадали дані банківських карток.' },
+
+        { id: 13, cat: 'sport', tag: 'Футбол', title: 'Збірна України виходить у фінал відбору', desc: 'Вирішальна перемога над суперником з рахунком 3:1.' },
+        { id: 14, cat: 'sport', tag: 'Теніс', title: 'Українка очолила світовий рейтинг WTA', desc: 'Історичне досягнення нашої тенісистки після перемоги у турнірі.' },
+        { id: 15, cat: 'sport', tag: 'Олімпіада', title: 'Миколаївські спортсмени готуються до ігор', desc: 'Команда плавців розпочала тренувальні збори у відкритому басейні.' }
+    ];
+
+    let savedNewsIds = JSON.parse(localStorage.getItem('savedNews')) || [];
+
+    // 2. ФУНКЦІЯ ВІДОБРАЖЕННЯ СПИСКУ
+    function renderNews(list = newsData) {
+        const container = document.getElementById('news-list');
+        container.innerHTML = '';
+        list.forEach(item => {
+            const isSaved = savedNewsIds.includes(item.id);
+            container.innerHTML += `
+                <article class="news-card" data-category="${item.cat}">
+                    <span class="tag">${item.tag}</span>
+                    <h2 onclick="openArticle(${item.id})">${item.title}</h2>
+                    <p>${item.desc}</p>
+                    <div class="card-footer">
+                        <button class="btn-action btn-read" onclick="openArticle(${item.id})">Читати повністю</button>
+                        <button class="btn-action btn-save ${isSaved ? 'saved' : ''}" onclick="toggleSave(${item.id}, this)">
+                            ${isSaved ? '✅ Збережено' : '📌 Зберегти'}
+                        </button>
+                        <button class="btn-action btn-like" onclick="this.innerHTML='❤️ '+(Math.floor(Math.random()*100)+1)">❤️ Лайк</button>
+                    </div>
+                </article>
+            `;
+        });
+        updateBookmarkCount();
+    }
+
+    // 3. ФУНКЦІЯ ЗБЕРЕЖЕННЯ
+    function toggleSave(id, btn) {
+        if (savedNewsIds.includes(id)) {
+            savedNewsIds = savedNewsIds.filter(i => i !== id);
+            btn.classList.remove('saved');
+            btn.innerHTML = '📌 Зберегти';
+        } else {
+            savedNewsIds.push(id);
+            btn.classList.add('saved');
+            btn.innerHTML = '✅ Збережено';
+        }
+        localStorage.setItem('savedNews', JSON.stringify(savedNewsIds));
+        updateBookmarkCount();
+    }
+
+    function updateBookmarkCount() {
+        document.getElementById('bookmark-count').innerText = savedNewsIds.length;
+    }
+
+    // 4. НАВІГАЦІЯ ТА ФІЛЬТРИ
+    function filterNews(cat, btn) {
+        document.querySelectorAll('.btn-nav').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        goHome();
+        const filtered = cat === 'all' ? newsData : newsData.filter(n => n.cat === cat);
+        renderNews(filtered);
+    }
+
+    function openArticle(id) {
+        const item = newsData.find(n => n.id === id);
+        document.getElementById('news-list').style.display = 'none';
+        document.getElementById('bookmarks-view').style.display = 'none';
+        const view = document.getElementById('article-view');
+        document.getElementById('article-content').innerHTML = `
+            <span class="tag">${item.tag}</span>
+            <h1>${item.title}</h1>
+            <p style="font-size:1.3rem; line-height:1.6;">${item.desc}. Це повний текст новини. Тут можуть бути детальні подробиці події, інтерв’ю та аналітика за ${new Date().toLocaleDateString('uk-UA')}.</p>
+        `;
+        view.style.display = 'block';
+        window.scrollTo(0,0);
+    }
+
+    function showBookmarks() {
+        document.getElementById('news-list').style.display = 'none';
+        document.getElementById('article-view').style.display = 'none';
+        const view = document.getElementById('bookmarks-view');
+        const listContainer = document.getElementById('bookmarks-list');
+        listContainer.innerHTML = '';
+
+        const savedList = newsData.filter(n => savedNewsIds.includes(n.id));
+        if (savedList.length === 0) {
+            listContainer.innerHTML = '<p>У вас поки немає збережених новин.</p>';
+        } else {
+            savedList.forEach(item => {
+                listContainer.innerHTML += `
+                    <div class="news-card">
+                        <h2>${item.title}</h2>
+                        <button class="btn-action btn-read" onclick="openArticle(${item.id})">Читати</button>
+                    </div>
+                `;
+            });
+        }
+        view.style.display = 'block';
+    }
+
+    function goHome() {
+        document.getElementById('news-list').style.display = 'block';
+        document.getElementById('article-view').style.display = 'none';
+        document.getElementById('bookmarks-view').style.display = 'none';
+    }
+
+    document.getElementById('today-date').innerText = new Date().toLocaleDateString('uk-UA', { weekday: 'long', day: 'numeric', month: 'long' });
+    renderNews(); // Початковий запуск
+</script>
+
+</body>
+</html>
